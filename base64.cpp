@@ -8,7 +8,7 @@ using namespace std;
 
 bitset<8> as_bits(char c);
 bitset<6> conv_to_bitset(char(& chars)[6]);
-void encode(const char(& charset)[64], const char* input, long size);
+char* encode(const char(& charset)[64], const char* input, long size);
 void decode(const char(& charset)[64], const char* input, long size);
 
 int main (int argc, char *argv[]) {
@@ -41,7 +41,9 @@ int main (int argc, char *argv[]) {
   if (isEncode) {
     cout << "Value to encode: ";
     *istream << cin.rdbuf();
-    encode(b64charset, istream->str().c_str(), istream->tellp());
+    char* resp = encode(b64charset, istream->str().c_str(), istream->tellp());
+    cout << resp << endl;
+    delete[] resp;
   } else {
     cout << "Value to decode: ";
     *istream << cin.rdbuf();
@@ -64,7 +66,7 @@ bitset<6> conv_to_bitset(char(& chars)[6]) {
   return b;
 }
 
-void encode(const char(& charset)[64], const char* input, long size) {
+char* encode(const char(& charset)[64], const char* input, long size) {
   // our output should be 4/3x the size of our input
   char* output = new char[size * (4/3)];
   long outIndex = 0;
@@ -112,20 +114,40 @@ void encode(const char(& charset)[64], const char* input, long size) {
     outIndex += 1;
   }
 
-  cout << output << endl;
+  if (!rem) return output;
 
-  if (rem == 0) return;
-
+  // padding -> ==
   if (rem == 1) {
-    // 8 bits over
-    // padding -> ==
-
-  } else if (rem == 2) {
-    // 16 bits over
-    // padding -> =
+    char set[6];
+    bitset<8> bset = as_bits(input[size - 1]);
+    for (int j = 0; j < 6; j += 1) set[j] = bset[7 - j];
+    output[outIndex] = charset[(int)(conv_to_bitset(set).to_ulong())];
+    outIndex += 1;
+    memset(set, 0, sizeof set);
+    for (int j = 6; j < 8; j += 1) set[j - 6] = bset[7 - j];
+    output[outIndex] = charset[(int)(conv_to_bitset(set).to_ulong())];
+    output[outIndex + 1] = '=';
+    output[outIndex + 2] = '=';
+    return output;
   }
 
-  return;
+  // padding -> =
+  char set[6];
+  bitset<8> bset = as_bits(input[size - 2]);
+  for (int j = 0; j < 6; j += 1) set[j] = bset[7 - j];
+  output[outIndex] = charset[(int)(conv_to_bitset(set).to_ulong())];
+  outIndex += 1;
+  memset(set, 0, sizeof set);
+  for (int j = 6; j < 8; j += 1) set[j - 6] = bset[7 - j];
+  bset = as_bits(input[size - 1]);
+  for (int j = 0; j < 4; j += 1) set[j + 2] = bset[7 - j];
+  output[outIndex] = charset[(int)(conv_to_bitset(set).to_ulong())];
+  outIndex += 1;
+  memset(set, 0, sizeof set);
+  for (int j = 4; j < 8; j += 1) set[j - 4] = bset[7 - j];
+  output[outIndex] = charset[(int)(conv_to_bitset(set).to_ulong())];
+  output[outIndex + 1] = '=';
+  return output;
 }
 
 void decode(const char(& charset)[64], const char* input, long size) {
